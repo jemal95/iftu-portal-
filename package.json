@@ -5,17 +5,25 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist",
+    "deploy:firebase": "DEPLOY_TARGET=firebase npm run build && firebase deploy",
     "build": "vite build",
+    "lint": "tsc",
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.2.4",
     "@google/genai": "^1.40.0",
+    "@supabase/supabase-js": "^2.97.0",
+    "lucide-react": "^0.576.0",
+    "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "firebase-tools": "^15.7.0",
+    "gh-pages": "^6.3.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }

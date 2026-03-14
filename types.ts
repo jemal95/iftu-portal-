@@ -23,6 +23,7 @@ export enum Stream {
 
 export type ExamType = 'mid' | 'final' | 'mock-eaes';
 export type Language = 'en' | 'am' | 'om';
+export type QuestionType = 'multiple-choice' | 'true-false' | 'fill-in-the-blank';
 
 export interface Lesson {
   id: string;
@@ -59,8 +60,9 @@ export interface Course {
 export interface Question {
   id: string;
   text: string;
+  type: QuestionType;
   options: string[];
-  correctAnswer: number;
+  correctAnswer: number | string;
   points: number;
   category: string;
 }
@@ -110,13 +112,13 @@ export interface User {
   status: 'active' | 'pending' | 'suspended';
   email: string;
   joinedDate: string;
-  nid?: string; // National ID
+  nid?: string; // National Identity Number
   gender?: 'Male' | 'Female' | 'Other';
   dob?: string;
-  salary?: number; // Teacher Salary or Student Stipend
+  salary?: number; // Base Salary for Teachers or Stipend for Students
   photo?: string;
-  department?: string;
-  subjects?: string[]; 
+  department?: string; // Teachers only
+  subjects?: string[]; // Teachers only
   phoneNumber?: string;
   address?: string;
   preferredLanguage: Language;

@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Course, Lesson, Question, Language } from '../types';
+import { Course, Lesson, Question, Language, User } from '../types';
 import { getLessonDeepDive } from '../services/geminiService';
+import { dbService } from '../services/dbService';
 import LiveInterviewer from './LiveInterviewer';
 
 const SovereignSkeleton: React.FC<{ className?: string }> = ({ className = "" }) => (
@@ -141,29 +142,73 @@ interface CourseViewerProps {
   course: Course;
   initialLessonId?: string;
   onClose: () => void;
-  onLessonComplete?: (lessonId: string, points: number) => void;
-  completedLessonIds?: string[];
+  currentUser: User | null;
+  onUserUpdate: (user: User) => void;
   language?: Language;
 }
 
-const CourseViewer: React.FC<CourseViewerProps> = ({ course, initialLessonId, onClose, onLessonComplete, completedLessonIds = [], language = 'en' }) => {
+const CourseViewer: React.FC<CourseViewerProps> = ({ 
+  course, 
+  initialLessonId, 
+  onClose, 
+  currentUser,
+  onUserUpdate,
+  language = 'en' 
+}) => {
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(
     course.lessons.find(l => l.id === initialLessonId) || course.lessons[0] || null
   );
   const [deepDive, setDeepDive] = useState<{ content: string; type: 'simpler' | 'advanced' | null }>({ content: '', type: null });
   const [isDeepDiving, setIsDeepDiving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  const handleFinish = (score?: number) => {
-    if (activeLesson && onLessonComplete) {
-      onLessonComplete(activeLesson.id, score || 50);
+  const completedLessonIds = currentUser?.completedLessons || [];
+
+  const handleFinish = async (score?: number) => {
+    if (!activeLesson || !currentUser || isSyncing) return;
+
+    const points = score || 50;
+    
+    // Check if already completed to avoid duplicate points/entries
+    const isAlreadyCompleted = completedLessonIds.includes(activeLesson.id);
+    
+    setIsSyncing(true);
+    try {
+      const updatedCompletedLessons = Array.from(new Set([...completedLessonIds, activeLesson.id]));
+      
+      // Check if course is now complete
+      const isCourseComplete = course.lessons.every(l => updatedCompletedLessons.includes(l.id));
+      const updatedCompletedCourses = isCourseComplete 
+        ? Array.from(new Set([...(currentUser.completedCourses || []), course.id])) 
+        : (currentUser.completedCourses || []);
+
+      const updatedUser: User = { 
+        ...currentUser, 
+        points: isAlreadyCompleted ? currentUser.points : currentUser.points + points, 
+        completedLessons: updatedCompletedLessons, 
+        completedCourses: updatedCompletedCourses 
+      };
+
+      // Update local state
+      onUserUpdate(updatedUser);
+
+      // Persist to database
+      await dbService.syncUser(updatedUser);
+
+      // Move to next lesson or close
       const currentIdx = course.lessons.findIndex(l => l.id === activeLesson.id);
       if (currentIdx < course.lessons.length - 1) {
         setActiveLesson(course.lessons[currentIdx + 1]);
         setDeepDive({ content: '', type: null });
-      } else {
-        alert("Course Mastery Achieved!");
+      } else if (isCourseComplete) {
+        alert("Course Mastery Achieved! All modules cataloged.");
         onClose();
       }
+    } catch (error) {
+      console.error("Failed to sync completion:", error);
+      alert("National Registry Sync Interrupted. Please try again.");
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -231,7 +276,17 @@ const CourseViewer: React.FC<CourseViewerProps> = ({ course, initialLessonId, on
                   </div>
                   <p className="text-2xl leading-relaxed text-gray-700">{activeLesson.content}</p>
                   <div className="pt-10 flex justify-center">
-                    <button onClick={() => handleFinish()} className="px-20 py-8 bg-black text-white rounded-[2.5rem] border-8 border-black font-black uppercase text-2xl shadow-[12px_12px_0px_0px_rgba(34,197,94,1)] hover:translate-y-2 transition-all">Mark Complete →</button>
+                    <button 
+                      onClick={() => handleFinish()} 
+                      disabled={isSyncing}
+                      className={`px-20 py-8 rounded-[2.5rem] border-8 border-black font-black uppercase text-2xl transition-all ${
+                        completedLessonIds.includes(activeLesson.id) 
+                          ? 'bg-green-500 text-white shadow-none cursor-default' 
+                          : 'bg-black text-white shadow-[12px_12px_0px_0px_rgba(34,197,94,1)] hover:translate-y-2'
+                      }`}
+                    >
+                      {isSyncing ? 'Syncing...' : completedLessonIds.includes(activeLesson.id) ? 'Lesson Completed ✓' : 'Mark Complete →'}
+                    </button>
                   </div>
                 </div>
 

@@ -10,7 +10,7 @@ interface ExamEngineProps {
 
 const ExamEngine: React.FC<ExamEngineProps> = ({ exam, onComplete, onCancel }) => {
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [answers, setAnswers] = useState<Record<string, number | string>>({});
   const [timeLeft, setTimeLeft] = useState(exam.durationMinutes * 60);
   const [timeSpent, setTimeSpent] = useState(0);
   const [alerts, setAlerts] = useState<string[]>([]);
@@ -20,7 +20,7 @@ const ExamEngine: React.FC<ExamEngineProps> = ({ exam, onComplete, onCancel }) =
   const [showWarning, setShowWarning] = useState<null | '6m' | '1m'>(null);
   const [screenPulse, setScreenPulse] = useState(false);
   
-  const answersRef = useRef<Record<string, number>>({});
+  const answersRef = useRef<Record<string, number | string>>({});
   const engineRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -145,7 +145,7 @@ const ExamEngine: React.FC<ExamEngineProps> = ({ exam, onComplete, onCancel }) =
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleAnswer = (val: number) => {
+  const handleAnswer = (val: number | string) => {
     setAnswers(prev => ({ ...prev, [exam.questions[currentIdx].id]: val }));
   };
 
@@ -155,7 +155,13 @@ const ExamEngine: React.FC<ExamEngineProps> = ({ exam, onComplete, onCancel }) =
     const finalAnswers = answersRef.current;
 
     exam.questions.forEach(q => {
-      const isCorrect = finalAnswers[q.id] === q.correctAnswer;
+      let isCorrect = false;
+      if (q.type === 'fill-in-the-blank') {
+        isCorrect = String(finalAnswers[q.id] || '').trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase();
+      } else {
+        isCorrect = finalAnswers[q.id] === q.correctAnswer;
+      }
+
       if (isCorrect) score += q.points;
       
       if (!categoryBreakdown[q.category]) categoryBreakdown[q.category] = { correct: 0, total: 0 };
@@ -290,18 +296,31 @@ const ExamEngine: React.FC<ExamEngineProps> = ({ exam, onComplete, onCancel }) =
                       {currentQuestion.text}
                     </p>
                     <div className="grid grid-cols-1 gap-8">
-                      {currentQuestion.options.map((opt, i) => (
-                        <button 
-                          key={i} 
-                          onClick={() => handleAnswer(i)} 
-                          className={`group text-left p-8 md:p-10 rounded-[3.5rem] border-8 border-black font-black text-2xl md:text-3xl transition-all flex items-center gap-8 md:gap-12 relative ${answers[currentQuestion.id] === i ? 'bg-blue-600 text-white shadow-[15px_15px_0px_0px_rgba(0,0,0,1)] translate-x-2 translate-y-2' : 'bg-slate-50 hover:bg-white hover:-translate-y-1'}`}
-                        >
-                          <div className={`w-14 h-14 md:w-20 md:h-20 rounded-[1.5rem] border-4 border-black flex items-center justify-center shrink-0 font-black text-2xl md:text-4xl transition-colors ${answers[currentQuestion.id] === i ? 'bg-white text-black' : 'bg-black text-white'}`}>
-                            {String.fromCharCode(65 + i)}
-                          </div>
-                          <span className="leading-[1.1] uppercase tracking-tighter">{opt}</span>
-                        </button>
-                      ))}
+                      {currentQuestion.type === 'fill-in-the-blank' ? (
+                        <div className="space-y-4">
+                          <label className="text-xs font-black uppercase tracking-widest text-gray-400">Your Response</label>
+                          <input 
+                            type="text"
+                            placeholder="Type your answer here..."
+                            className="w-full p-10 bg-white border-8 border-black rounded-[3rem] font-black text-3xl outline-none shadow-inner focus:ring-8 focus:ring-blue-600/20 transition-all"
+                            value={answers[currentQuestion.id] || ''}
+                            onChange={(e) => handleAnswer(e.target.value)}
+                          />
+                        </div>
+                      ) : (
+                        currentQuestion.options.map((opt, i) => (
+                          <button 
+                            key={i} 
+                            onClick={() => handleAnswer(i)} 
+                            className={`group text-left p-8 md:p-10 rounded-[3.5rem] border-8 border-black font-black text-2xl md:text-3xl transition-all flex items-center gap-8 md:gap-12 relative ${answers[currentQuestion.id] === i ? 'bg-blue-600 text-white shadow-[15px_15px_0px_0px_rgba(0,0,0,1)] translate-x-2 translate-y-2' : 'bg-slate-50 hover:bg-white hover:-translate-y-1'}`}
+                          >
+                            <div className={`w-14 h-14 md:w-20 md:h-20 rounded-[1.5rem] border-4 border-black flex items-center justify-center shrink-0 font-black text-2xl md:text-4xl transition-colors ${answers[currentQuestion.id] === i ? 'bg-white text-black' : 'bg-black text-white'}`}>
+                              {String.fromCharCode(65 + i)}
+                            </div>
+                            <span className="leading-[1.1] uppercase tracking-tighter">{opt}</span>
+                          </button>
+                        ))
+                      )}
                     </div>
                  </div>
               </div>

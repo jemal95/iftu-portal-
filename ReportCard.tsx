@@ -11,6 +11,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ result, onClose }) => {
   const percentage = Math.round((result.score / result.totalPoints) * 100);
 
   const handlePrint = () => {
+    // Direct call without delay for mobile compatibility
     window.print();
   };
 

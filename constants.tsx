@@ -1,4 +1,5 @@
-
+import React from 'react';
+import { Users, CheckSquare, Zap, Shield } from 'lucide-react';
 import { Course, Grade, EducationLevel, Exam, Stream } from './types';
 
 const getThumb = (subject: string, id: number) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&q=80&w=400&sig=${subject}`;
@@ -82,8 +83,8 @@ export const MOCK_EXAMS: Exam[] = [
     subject: 'Mathematics',
     categories: ['Algebra', 'Geometry'],
     questions: [
-      { id: 'q9m1', text: 'Solve for x: 3x - 12 = 0.', options: ['2', '3', '4', '6'], correctAnswer: 2, points: 10, category: 'Algebra' },
-      { id: 'q9m2', text: 'Which is a prime number?', options: ['4', '9', '13', '15'], correctAnswer: 2, points: 10, category: 'Algebra' }
+      { id: 'q9m1', text: 'Solve for x: 3x - 12 = 0.', type: 'multiple-choice', options: ['2', '3', '4', '6'], correctAnswer: 2, points: 10, category: 'Algebra' },
+      { id: 'q9m2', text: 'Which is a prime number?', type: 'multiple-choice', options: ['4', '9', '13', '15'], correctAnswer: 2, points: 10, category: 'Algebra' }
     ]
   }
 ];
@@ -93,10 +94,10 @@ export const MOCK_NEWS = [
 ];
 
 export const SUMMER_STATS = [
-  { label: 'Active Learners', value: '450K+', color: '#3b82f6', icon: '👤' },
-  { label: 'Modules Completed', value: '1.2M', color: '#009b44', icon: '✅' },
-  { label: 'System Uptime', value: '99.9%', color: '#ffcd00', icon: '⚡' },
-  { label: 'Exam Integrity', value: '100%', color: '#ef3340', icon: '🛡️' }
+  { label: 'ACTIVE LEARNERS', value: '450K+', color: '#3b82f6', icon: <Users size={48} /> },
+  { label: 'MODULES COMPLETED', value: '1.2M', color: '#009b44', icon: <CheckSquare size={48} /> },
+  { label: 'SYSTEM UPTIME', value: '99.9%', color: '#ffcd00', icon: <Zap size={48} /> },
+  { label: 'EXAM INTEGRITY', value: '100%', color: '#ef3340', icon: <Shield size={48} /> }
 ];
 
 export const SUMMER_ACTIVITIES = [

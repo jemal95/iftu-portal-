@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Grade, Stream, EducationLevel, User } from '../types';
 
 interface RegistrationPortalProps {
-  onRegister: (user: User) => void;
+  onRegister: (user: User, password: string) => Promise<void> | void;
   onCancel: () => void;
 }
 
@@ -11,6 +11,7 @@ const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ onRegister, onC
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    password: '',
     nid: '',
     gender: 'Male' as 'Male' | 'Female' | 'Other',
     dob: '',
@@ -21,40 +22,49 @@ const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ onRegister, onC
     phoneNumber: '',
     address: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.nid) {
-      alert("NID, Full Name, and Email are strictly required for National Registry Authentication.");
+    if (!formData.name || !formData.email || !formData.nid || !formData.password) {
+      alert("NID, Full Name, Email, and Password are strictly required for National Registry Authentication.");
       return;
     }
-    const newUser: User = {
-      id: `usr-${Date.now()}`,
-      name: formData.name,
-      email: formData.email,
-      nid: formData.nid,
-      gender: formData.gender,
-      dob: formData.dob,
-      role: 'student',
-      status: 'active',
-      grade: formData.grade,
-      stream: formData.stream,
-      level: formData.level,
-      school: formData.school,
-      phoneNumber: formData.phoneNumber,
-      address: formData.address,
-      salary: 250, // Initial National Stipend
-      points: 0,
-      joinedDate: new Date().toISOString().split('T')[0],
-      preferredLanguage: 'en',
-      badges: [],
-      photo: `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.name}&backgroundColor=b6e3f4`,
-      completedLessons: [],
-      completedExams: [],
-      completedCourses: [],
-      certificatesPaid: []
-    };
-    onRegister(newUser);
+    
+    setIsSubmitting(true);
+    try {
+      const newUser: Partial<User> = {
+        name: formData.name,
+        email: formData.email,
+        nid: formData.nid,
+        gender: formData.gender,
+        dob: formData.dob,
+        role: 'student',
+        status: 'active',
+        grade: formData.grade,
+        stream: formData.stream,
+        level: formData.level,
+        school: formData.school,
+        phoneNumber: formData.phoneNumber,
+        address: formData.address,
+        salary: 250, // Initial National Stipend
+        points: 0,
+        joinedDate: new Date().toISOString().split('T')[0],
+        preferredLanguage: 'en',
+        badges: [],
+        photo: `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.name}&backgroundColor=b6e3f4`,
+        completedLessons: [],
+        completedExams: [],
+        completedCourses: [],
+        certificatesPaid: []
+      };
+
+      await onRegister(newUser as User, formData.password);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -77,6 +87,10 @@ const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ onRegister, onC
             <div className="space-y-4">
               <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Portal Email</label>
               <input required type="email" className="w-full p-8 border-4 border-black rounded-[2.5rem] font-black text-xl outline-none" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="example@iftu.edu.et" />
+            </div>
+            <div className="space-y-4">
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">Secure Password</label>
+              <input required type="password" title="Minimum 6 characters" className="w-full p-8 border-4 border-black rounded-[2.5rem] font-black text-xl outline-none" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="••••••••" />
             </div>
             <div className="space-y-4">
               <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-4">National ID (NID)</label>
@@ -131,7 +145,14 @@ const RegistrationPortal: React.FC<RegistrationPortalProps> = ({ onRegister, onC
           </div>
 
           <div className="flex flex-col gap-6 pt-10">
-            <button type="submit" className="w-full py-12 bg-black text-white border-8 border-black rounded-[4rem] font-black uppercase text-4xl shadow-[15px_15px_0px_0px_rgba(59,130,246,1)] hover:translate-y-2 transition-all">Authenticate & Enroll</button>
+            <p className="text-xs font-black text-red-500 uppercase text-center">* Ensure NID, Full Name, Email, and Password are filled to activate enrollment.</p>
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="w-full py-12 bg-black text-white border-8 border-black rounded-[4rem] font-black uppercase text-4xl shadow-[15px_15px_0px_0px_rgba(59,130,246,1)] hover:translate-y-2 transition-all disabled:opacity-50"
+            >
+              {isSubmitting ? 'ENROLLING...' : 'Authenticate & Enroll'}
+            </button>
             <button type="button" onClick={onCancel} className="text-xl font-black uppercase italic text-gray-400">Cancel & Return to Hall</button>
           </div>
         </form>

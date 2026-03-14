@@ -9,7 +9,7 @@ const LANGUAGE_NAMES = {
 };
 
 export const askTutor = async (question: string, language: Language = 'en', context?: string) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -28,8 +28,54 @@ export const askTutor = async (question: string, language: Language = 'en', cont
   }
 };
 
+/**
+ * Parses questions directly from a document (PDF or DOCX) using Gemini's multi-modal capabilities.
+ */
+export const parseExamFromDocument = async (base64Data: string, mimeType: string): Promise<Partial<Question>[]> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.1-pro-preview',
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              data: base64Data,
+              mimeType: mimeType
+            }
+          },
+          {
+            text: "Extract all multiple-choice questions from this document. Return them in the specified JSON format. Ensure you extract the options, the correct answer index (0-3), points per question, and a category for each question."
+          }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              text: { type: Type.STRING },
+              options: { type: Type.ARRAY, items: { type: Type.STRING } },
+              correctAnswer: { type: Type.INTEGER, description: "Index of the correct option (0-3)" },
+              points: { type: Type.INTEGER },
+              category: { type: Type.STRING }
+            },
+            required: ["text", "options", "correctAnswer", "points", "category"]
+          }
+        }
+      }
+    });
+    return JSON.parse(response.text || "[]");
+  } catch (error) {
+    console.error("Document Parsing Error:", error);
+    return [];
+  }
+};
+
 export const getRegionalIntelligence = async (region: string) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -51,7 +97,7 @@ export const getRegionalIntelligence = async (region: string) => {
 };
 
 export const fetchLatestEducationNews = async () => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -69,7 +115,7 @@ export const fetchLatestEducationNews = async () => {
 };
 
 export const getLessonDeepDive = async (text: string, type: 'simpler' | 'advanced', language: Language = 'en') => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const prompt = type === 'simpler' ? `Simpler explanation of: ${text}` : `Advanced technical context for: ${text}`;
   try {
     const response = await ai.models.generateContent({
@@ -82,10 +128,10 @@ export const getLessonDeepDive = async (text: string, type: 'simpler' | 'advance
 };
 
 export const parseExamDocument = async (text: string): Promise<Partial<Question>[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3.1-pro-preview',
       contents: `Extract multiple-choice questions from: ${text}`,
       config: {
         responseMimeType: "application/json",
@@ -109,12 +155,25 @@ export const parseExamDocument = async (text: string): Promise<Partial<Question>
   } catch (error) { return []; }
 };
 
-export const generateExamQuestions = async (subject: string, topic: string, difficulty: string, count: number = 5): Promise<Partial<Question>[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+export const generateExamQuestions = async (
+  subject: string, 
+  topic: string, 
+  difficulty: string, 
+  questionTypes: string[],
+  count: number = 5
+): Promise<Partial<Question>[]> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: `Generate ${count} questions for Subject: ${subject}, Topic: ${topic}.`,
+      model: 'gemini-3.1-pro-preview',
+      contents: `Generate ${count} questions for Subject: ${subject}, Topic: ${topic}. 
+      Difficulty Level: ${difficulty}. 
+      Question Formats: ${questionTypes.join(', ')}.
+      
+      Rules:
+      1. For 'multiple-choice', provide 4 options and a correctAnswer index (0-3).
+      2. For 'true-false', provide 2 options ["True", "False"] and a correctAnswer index (0 or 1).
+      3. For 'fill-in-the-blank', options should be an empty array and correctAnswer should be the exact string answer.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -123,25 +182,35 @@ export const generateExamQuestions = async (subject: string, topic: string, diff
             type: Type.OBJECT,
             properties: {
               text: { type: Type.STRING },
+              type: { type: Type.STRING, description: "One of: multiple-choice, true-false, fill-in-the-blank" },
               options: { type: Type.ARRAY, items: { type: Type.STRING } },
-              correctAnswer: { type: Type.INTEGER },
+              correctAnswer: { type: Type.STRING, description: "Index (as string) for MC/TF, or the word for fill-in-the-blank" },
               points: { type: Type.INTEGER },
               category: { type: Type.STRING }
             },
-            required: ["text", "options", "correctAnswer", "points", "category"]
+            required: ["text", "type", "options", "correctAnswer", "points", "category"]
           }
         }
       }
     });
-    return JSON.parse(response.text || "[]");
-  } catch (error) { return []; }
+    
+    const parsed = JSON.parse(response.text || "[]");
+    // Ensure correctAnswer is number if it's MC or TF
+    return parsed.map((q: any) => ({
+      ...q,
+      correctAnswer: (q.type === 'fill-in-the-blank') ? q.correctAnswer : parseInt(q.correctAnswer)
+    }));
+  } catch (error) { 
+    console.error("Generation Error:", error);
+    return []; 
+  }
 };
 
 export const findNearbyColleges = async (lat: number, lng: number, type: 'TVET' | 'High School' = 'TVET') => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-lite-latest',
+      model: 'gemini-3.1-flash-lite-preview',
       contents: `List 5 prominent ${type} institutions near lat: ${lat}, lng: ${lng}.`,
       config: {
         tools: [{ googleMaps: {} }],
